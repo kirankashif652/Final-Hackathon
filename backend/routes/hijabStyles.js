@@ -7,34 +7,36 @@ const router = express.Router();
 // Validation middleware
 const validateHijabStyle = (req, res, next) => {
   const { name, image } = req.body;
-  
+
   if (!name || name.trim().length === 0) {
-    return res.status(400).json({ 
-      success: false, 
-      message: "Style name is required" 
+    return res.status(400).json({
+      success: false,
+      message: "Style name is required"
     });
   }
-  
+
   if (!image || !image.match(/^https?:\/\/.+\.(jpg|jpeg|png|webp|gif)$/i)) {
-    return res.status(400).json({ 
-      success: false, 
-      message: "Valid image URL is required" 
+    return res.status(400).json({
+      success: false,
+      message: "Valid image URL is required"
     });
   }
-  
+
   next();
 };
-
-// --- Specific routes before parameterized routes ---
 
 // GET /api/hijab-styles/popular
 router.get("/popular", async (req, res) => {
   try {
     const { limit = 10 } = req.query;
-    const popularStyles = await HijabStyle.findPopular(parseInt(limit));
-    
+    const popularStyles = await HijabStyle.find()
+      .sort({ likes: -1, views: -1 })
+      .limit(parseInt(limit))
+      .lean();
+
     res.json({ success: true, data: popularStyles });
   } catch (error) {
+    console.error(error);
     res.status(500).json({ success: false, message: "Error fetching popular styles" });
   }
 });
@@ -42,17 +44,18 @@ router.get("/popular", async (req, res) => {
 // GET /api/hijab-styles/featured
 router.get("/featured", async (req, res) => {
   try {
-    const featuredStyles = await HijabStyle.find({ 
+    const featuredStyles = await HijabStyle.find({
       status: 'Published',
       likes: { $gte: 50 }
     })
-    .sort({ likes: -1, views: -1 })
-    .limit(6)
-    .populate('createdBy', 'name profile.avatar')
-    .lean();
+      .sort({ likes: -1, views: -1 })
+      .limit(6)
+      .populate('createdBy', 'name profile.avatar')
+      .lean();
 
     res.json({ success: true, data: featuredStyles });
   } catch (error) {
+    console.error(error);
     res.status(500).json({ success: false, message: "Error fetching featured styles" });
   }
 });
@@ -73,12 +76,13 @@ router.get("/search/suggestions", async (req, res) => {
         { tags: { $regex: query, $options: 'i' } }
       ]
     })
-    .select('name slug')
-    .limit(10)
-    .lean();
+      .select('name slug')
+      .limit(10)
+      .lean();
 
     res.json({ success: true, data: suggestions });
   } catch (error) {
+    console.error(error);
     res.status(500).json({ success: false, message: "Error fetching suggestions" });
   }
 });
@@ -103,6 +107,7 @@ router.get("/filters/options", async (req, res) => {
       }
     });
   } catch (error) {
+    console.error(error);
     res.status(500).json({ success: false, message: "Error fetching filter options" });
   }
 });
@@ -111,7 +116,7 @@ router.get("/filters/options", async (req, res) => {
 router.get("/seed", async (req, res) => {
   try {
     await HijabStyle.deleteMany();
-    
+
     const sampleHijabs = [
       {
         name: "Classic Everyday Wrap",
@@ -131,9 +136,10 @@ router.get("/seed", async (req, res) => {
         ],
         tags: ["easy", "classic", "everyday", "simple"],
         likes: 45,
-        views: 230
+        views: 230,
+        status: "Published"
       },
-      // ... (rest of sample data as you provided)
+      // Add more sample data here if needed...
     ];
 
     const insertedHijabs = await HijabStyle.insertMany(sampleHijabs);
@@ -148,8 +154,6 @@ router.get("/seed", async (req, res) => {
     res.status(500).json({ success: false, message: "Error seeding data", error: error.message });
   }
 });
-
-// --- Now parameterized routes ---
 
 // GET /api/hijab-styles/:id
 router.get("/:id", async (req, res) => {
@@ -169,7 +173,7 @@ router.get("/:id", async (req, res) => {
 
     let reviews = [];
     let reviewStats = null;
-    
+
     if (includeReviews === 'true') {
       [reviews, reviewStats] = await Promise.all([
         Review.findForStyle(id, { limit: 5, sort: 'helpful' }),
@@ -186,6 +190,7 @@ router.get("/:id", async (req, res) => {
       }
     });
   } catch (error) {
+    console.error(error);
     res.status(500).json({ success: false, message: "Error fetching hijab style" });
   }
 });
@@ -220,6 +225,7 @@ router.put("/:id", validateHijabStyle, async (req, res) => {
       const errors = Object.values(error.errors).map(err => err.message);
       return res.status(400).json({ success: false, message: "Validation error", errors });
     }
+    console.error(error);
     res.status(500).json({ success: false, message: "Error updating hijab style" });
   }
 });
@@ -239,6 +245,7 @@ router.delete("/:id", async (req, res) => {
 
     res.json({ success: true, message: "Hijab style deleted successfully" });
   } catch (error) {
+    console.error(error);
     res.status(500).json({ success: false, message: "Error deleting hijab style" });
   }
 });
@@ -248,14 +255,15 @@ router.post("/:id/like", async (req, res) => {
   try {
     const { id } = req.params;
     const { action = 'toggle' } = req.body;
-    
+
     const hijab = await HijabStyle.findById(id);
     if (!hijab) {
       return res.status(404).json({ success: false, message: "Hijab style not found" });
     }
 
-    let increment = action === 'unlike' ? false : true;
+    const increment = action !== 'unlike';
 
+    // Assuming toggleLike is a method on hijab instance
     await hijab.toggleLike(increment);
 
     res.json({
@@ -264,6 +272,7 @@ router.post("/:id/like", async (req, res) => {
       data: { likes: hijab.likes }
     });
   } catch (error) {
+    console.error(error);
     res.status(500).json({ success: false, message: "Error updating like status" });
   }
 });
@@ -289,18 +298,19 @@ router.get("/:id/similar", async (req, res) => {
         { suitableFaceShapes: { $in: currentStyle.suitableFaceShapes || [] } }
       ]
     })
-    .sort({ likes: -1, views: -1 })
-    .limit(parseInt(limit))
-    .populate('createdBy', 'name profile.avatar')
-    .lean();
+      .sort({ likes: -1, views: -1 })
+      .limit(parseInt(limit))
+      .populate('createdBy', 'name profile.avatar')
+      .lean();
 
     res.json({ success: true, data: similarStyles });
   } catch (error) {
+    console.error(error);
     res.status(500).json({ success: false, message: "Error fetching similar styles" });
   }
 });
 
-// GET /api/hijab-styles - list all with filtering, pagination etc.
+// --- UPDATED GET /api/hijab-styles --- List with filtering, pagination, sorting
 router.get("/", async (req, res) => {
   try {
     const {
@@ -315,24 +325,22 @@ router.get("/", async (req, res) => {
       createdBy
     } = req.query;
 
+    // Build filters object
     const filters = { status };
     if (createdBy) filters.createdBy = createdBy;
 
-    let hijabsQuery;
     if (search) {
-      hijabsQuery = HijabStyle.searchStyles(search, {
-        difficulty,
-        occasions: occasions ? occasions.split(',') : undefined,
-        faceShape
-      });
-    } else {
-      if (difficulty) filters.difficulty = difficulty;
-      if (occasions) filters.occasions = { $in: occasions.split(',') };
-      if (faceShape) filters.suitableFaceShapes = faceShape;
-
-      hijabsQuery = HijabStyle.find(filters);
+      filters.$or = [
+        { name: { $regex: search, $options: 'i' } },
+        { tags: { $regex: search, $options: 'i' } },
+      ];
     }
 
+    if (difficulty) filters.difficulty = difficulty;
+    if (occasions) filters.occasions = { $in: occasions.split(',') };
+    if (faceShape) filters.suitableFaceShapes = faceShape;
+
+    // Sorting options
     let sortQuery;
     switch (sort) {
       case 'newest': sortQuery = { createdAt: -1 }; break;
@@ -343,28 +351,30 @@ router.get("/", async (req, res) => {
       default: sortQuery = { createdAt: -1 };
     }
 
-    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const pageInt = parseInt(page);
+    const limitInt = parseInt(limit);
+    const skip = (pageInt - 1) * limitInt;
 
-    const hijabs = await hijabsQuery
+    const hijabs = await HijabStyle.find(filters)
       .sort(sortQuery)
-      .limit(parseInt(limit))
       .skip(skip)
+      .limit(limitInt)
       .populate('createdBy', 'name profile.avatar')
       .lean();
 
     const totalCount = await HijabStyle.countDocuments(filters);
-    const totalPages = Math.ceil(totalCount / parseInt(limit));
+    const totalPages = Math.ceil(totalCount / limitInt);
 
     res.json({
       success: true,
       data: {
         hijabs,
         pagination: {
-          currentPage: parseInt(page),
+          currentPage: pageInt,
           totalPages,
           totalCount,
-          hasNext: parseInt(page) < totalPages,
-          hasPrev: parseInt(page) > 1
+          hasNext: pageInt < totalPages,
+          hasPrev: pageInt > 1,
         }
       }
     });

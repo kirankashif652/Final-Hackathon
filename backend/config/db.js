@@ -2,9 +2,9 @@ import mongoose from "mongoose";
 
 const connectDB = async () => {
   try {
-    const dbName = "hijab_gallery"; // <-- yahan apna database ka naam set karo
+    const dbName = "hijab_gallery"; 
     const conn = await mongoose.connect(process.env.MONGO_URI, {
-      dbName, // Ye ensure karega ki data isi DB me store ho
+      dbName, 
     });
 
     console.log(`✅ MongoDB Connected: ${conn.connection.host}`);

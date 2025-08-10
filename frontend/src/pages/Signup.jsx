@@ -52,7 +52,7 @@ const Signup = () => {
 
     try {
       const { confirmPassword, ...submitData } = form;
-      const res = await axios.post("http://localhost:5001/api/auth/signup", submitData);
+      const res = await axios.post("http://localhost:5000/api/auth/signup", submitData);
 
       setSuccess(res.data.message || "Account created successfully! You can now log in.");
       setForm({ name: "", email: "", password: "", confirmPassword: "" });
@@ -182,18 +182,23 @@ const Signup = () => {
                     </span>
                   </button>
                 </div>
-                
+
                 {/* Password Strength Indicator */}
                 {form.password && (
                   <div className="mt-2">
                     <div className="flex items-center justify-between text-xs text-gray-600 mb-1">
                       <span>Password strength</span>
-                      <span className={`font-medium ${
-                        passwordStrength.strength < 50 ? 'text-red-500' :
-                        passwordStrength.strength < 75 ? 'text-yellow-500' :
-                        passwordStrength.strength < 100 ? 'text-blue-500' :
-                        'text-green-500'
-                      }`}>
+                      <span
+                        className={`font-medium ${
+                          passwordStrength.strength < 50
+                            ? "text-red-500"
+                            : passwordStrength.strength < 75
+                            ? "text-yellow-500"
+                            : passwordStrength.strength < 100
+                            ? "text-blue-500"
+                            : "text-green-500"
+                        }`}
+                      >
                         {passwordStrength.label}
                       </span>
                     </div>
@@ -224,8 +229,8 @@ const Signup = () => {
                     required
                     className={`w-full pl-10 pr-12 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-500 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white ${
                       form.confirmPassword && form.password !== form.confirmPassword
-                        ? 'border-red-300 bg-red-50'
-                        : 'border-gray-200'
+                        ? "border-red-300 bg-red-50"
+                        : "border-gray-200"
                     }`}
                     placeholder="Confirm your password"
                   />
